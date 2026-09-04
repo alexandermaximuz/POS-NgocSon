@@ -20,7 +20,7 @@ Trước khi thêm bất kỳ trường, bước xác nhận hay màn hình nào
 
 ## Stack
 
-- Next.js 15 App Router · TypeScript strict
+- Next.js 16 App Router · TypeScript strict
 - Tailwind v4 + shadcn/ui · design tokens ở `src/styles/tokens.css`
 - TanStack Query (server state) + Zustand (giỏ hàng)
 - react-hook-form + zod
@@ -105,7 +105,10 @@ RLS phục vụ **tách dữ liệu giữa 2 cửa hàng**, không phải chốn
 
 ```bash
 pnpm dev                 # chạy local
-pnpm verify              # typecheck + lint + build — BẮT BUỘC chạy trước khi commit
+pnpm verify              # next typegen && tsc --noEmit && eslint && next build
+                          # BẮT BUỘC chạy trước khi commit
+                          # (Next.js 16 bỏ lệnh `next lint`, dùng thẳng `eslint`;
+                          #  cần `next typegen` trước tsc vì typed routes)
 pnpm db:push             # supabase db push
 pnpm db:types            # sinh lại src/lib/db/types.ts
 pnpm test:rls            # kiểm tra RLS tách dữ liệu 2 cửa hàng

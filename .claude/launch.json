@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pos-ngocson-dev",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": [
+        "/c",
+        "set PATH=C:\\Program Files\\nodejs;C:\\Users\\Nam\\AppData\\Roaming\\npm;%PATH% && pnpm dev"
+      ],
+      "port": 3000
+    }
+  ]
+}
