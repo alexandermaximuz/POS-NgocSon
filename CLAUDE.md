@@ -129,12 +129,12 @@ pnpm test:e2e            # Playwright
 - Bán ở cửa hàng A không làm đổi tồn kho hay doanh thu cửa hàng B
 - Không tồn tại từ khoá `valuation`, `avg_cost`, `cogs`, `gross_profit` trong `src/`
 
-## Bi?n m�i tru?ng
+## Biến môi trường
 
 NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY      � d�ng ? client
-SUPABASE_SERVICE_ROLE_KEY          � server-only, KH�NG c� ti?n t? NEXT_PUBLIC_
+NEXT_PUBLIC_SUPABASE_ANON_KEY      — dùng ở client
+SUPABASE_SERVICE_ROLE_KEY          — server-only, KHÔNG có tiền tố NEXT_PUBLIC_
 
-D�ng d�ng ba t�n bi?n tr�n, kh�ng d?i sang t�n kh�c.
-File .env.local d� c� s?n ? m�y, kh�ng d?c v� kh�ng ghi d� file n�y.
-Khi c?n bi?n m?i, b�o t�i bi?t d? t�i t? th�m.
+Dùng đúng ba tên biến trên, không đổi sang tên khác.
+File .env.local đã có sẵn ở máy, không đọc và không ghi đè file này.
+Khi cần biến mới, báo tôi biết để tôi tự thêm.
