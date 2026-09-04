@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+/* Inter is self-hosted via next/font/google in src/app/layout.tsx — no CDN @import. */
 
 /* ============================================================
    CRM 3S — Design tokens
@@ -691,6 +691,13 @@
   --badge-height: 20px;
   --card-radius: 12px;
   --hairline: 0.8px;           /* every border on the site */
+
+  /* ---------- 11. Brand ----------
+     POS Ngọc Sơn brand teal. Used for --primary in the shadcn/ui theme
+     mapping (src/app/globals.css) — never hardcode these hex values
+     outside this file. */
+  --brand-teal: #008282;
+  --brand-sidebar: #033a3a;
 }
 
 /* Status pill tinting.
