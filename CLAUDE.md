@@ -128,3 +128,13 @@ pnpm test:e2e            # Playwright
 - `SUM(stock_ledger.qty_base)` = `stock_balances.qty_base` cho **má»i** biáº¿n thá»ƒ
 - BÃ¡n á»Ÿ cá»­a hÃ ng A khÃ´ng lÃ m Ä‘á»•i tá»“n kho hay doanh thu cá»­a hÃ ng B
 - KhÃ´ng tá»“n táº¡i tá»« khoÃ¡ `valuation`, `avg_cost`, `cogs`, `gross_profit` trong `src/`
+
+## Bi?n môi tru?ng
+
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY      — dùng ? client
+SUPABASE_SERVICE_ROLE_KEY          — server-only, KHÔNG có ti?n t? NEXT_PUBLIC_
+
+Dùng dúng ba tên bi?n trên, không d?i sang tên khác.
+File .env.local dã có s?n ? máy, không d?c và không ghi dè file này.
+Khi c?n bi?n m?i, báo tôi bi?t d? tôi t? thêm.
