@@ -269,6 +269,56 @@ async function main(): Promise<void> {
   if (anonRpc.error !== null) ok("anon gọi RPC → bị từ chối", anonRpc.error.code);
   else bad("anon gọi RPC → bị từ chối", "GỌI ĐƯỢC");
 
+  // ── 8. Ca làm việc và quỹ tiền mặt (0014) ────────────────────────────────
+  //
+  // Không mở ca thật ở đây: test này chạy trên database dev có dữ liệu, và
+  // ux_cash_shifts_one_open_store sẽ chặn ca thật của người đang dùng máy. Chỉ
+  // khẳng định các nhánh TỪ CHỐI — nhánh thành công đã đi qua giao diện.
+  console.log("\n8. Ca làm việc: cách ly cửa hàng và cấm ghi thẳng");
+
+  const shiftsCh2AsStaff1 = await countRows(staff1, "cash_shifts", fx.ch2);
+  if (shiftsCh2AsStaff1 === 0) ok("staff CH1 không đọc được ca của CH2");
+  else bad("staff CH1 không đọc được ca của CH2", `thấy ${String(shiftsCh2AsStaff1)}`);
+
+  const txnCh2AsStaff1 = await countRows(staff1, "cash_transactions", fx.ch2);
+  if (txnCh2AsStaff1 === 0) ok("staff CH1 không đọc được phiếu thu/chi của CH2");
+  else bad("staff CH1 không đọc được phiếu thu/chi của CH2", `thấy ${String(txnCh2AsStaff1)}`);
+
+  const directShift = await staff1
+    .from("cash_shifts")
+    .insert({ store_id: fx.ch1, user_id: "00000000-0000-4000-8000-000000000000", opening_float: 1 });
+  if (directShift.error !== null) {
+    ok("INSERT thẳng vào cash_shifts → bị từ chối", directShift.error.code);
+  } else {
+    bad("INSERT thẳng vào cash_shifts → bị từ chối", "GHI ĐƯỢC");
+  }
+
+  const crossStore = await staff1.rpc("rpc_open_shift", {
+    p_payload: { store_id: fx.ch2, opening_float: 1000 },
+  });
+  if (crossStore.error?.message === "PERMISSION_DENIED") {
+    ok("staff CH1 mở ca ở CH2 → PERMISSION_DENIED");
+  } else {
+    bad("staff CH1 mở ca ở CH2 → PERMISSION_DENIED", crossStore.error?.message ?? "MỞ ĐƯỢC");
+  }
+
+  // fn_shift_expected_cash nhận shift_id và trả số tiền. Gọi thẳng được nghĩa là
+  // đọc được tiền két của cửa hàng khác — 0014 revoke đúng vì lý do này.
+  const directFn = await staff1.rpc("fn_shift_expected_cash", {
+    p_shift: "00000000-0000-4000-8000-000000000000",
+  });
+  if (directFn.error !== null) {
+    ok("authenticated không gọi thẳng được fn_shift_expected_cash", directFn.error.code);
+  } else {
+    bad("authenticated không gọi thẳng được fn_shift_expected_cash", "GỌI ĐƯỢC");
+  }
+
+  for (const fn of ["rpc_open_shift", "rpc_close_shift", "rpc_cash_txn", "rpc_current_shift"]) {
+    const r = await anon.rpc(fn, { p_payload: { store_id: fx.ch1 } });
+    if (r.error !== null) ok(`anon gọi ${fn} → bị từ chối`, r.error.code);
+    else bad(`anon gọi ${fn} → bị từ chối`, "GỌI ĐƯỢC");
+  }
+
   console.log(`\n${String(pass)} pass, ${String(fail)} fail`);
   if (fail > 0) process.exit(1);
 }
