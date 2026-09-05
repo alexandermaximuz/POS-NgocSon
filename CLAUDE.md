@@ -21,7 +21,8 @@ Trước khi thêm bất kỳ trường, bước xác nhận hay màn hình nào
 ## Stack
 
 - Next.js 16 App Router · TypeScript strict
-- Tailwind v4 + shadcn/ui · design tokens ở `src/styles/tokens.css`
+- Tailwind v4 + shadcn/ui (style `new-york`, nền Radix UI — không dùng preset
+  Base UI/"base-nova") · design tokens ở `src/styles/tokens.css`
 - TanStack Query (server state) + Zustand (giỏ hàng)
 - react-hook-form + zod
 - Supabase: Postgres + Auth + RLS + RPC
