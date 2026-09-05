@@ -28,6 +28,14 @@ const buttonVariants = cva(
         "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8",
         "icon-lg": "size-10",
+        /*
+         * Vùng bấm ≥ 44px cho nút thao tác trong luồng bán hàng, mở ca, đóng ca:
+         * máy ở quầy có thể là màn cảm ứng, và người bán bấm bằng ngón tay khi
+         * đang cầm hàng bằng tay kia. Các size nhỏ hơn dành cho chrome mật độ cao
+         * (topbar, bộ lọc), không dành cho hành động chính.
+         */
+        pos: "h-11 rounded-md px-6 text-base has-[>svg]:px-5",
+        "icon-pos": "size-11",
       },
     },
     defaultVariants: {
