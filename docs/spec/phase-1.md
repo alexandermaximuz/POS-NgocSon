@@ -30,10 +30,30 @@ Dựng toàn bộ schema, RLS và dữ liệu mẫu. Sinh TypeScript types.
 0009_returns.sql           -- returns, return_items
 0010_stocktake_shift.sql   -- stock_takes, stock_take_items,
                            -- cash_shifts, cash_transactions
-0011_system.sql            -- audit_log, number_sequences, fn_next_doc_no
-0012_rls_helpers.sql       -- fn_my_store_ids, fn_is_owner, fn_is_any_owner
-0013_rls_policies.sql      -- toàn bộ policy + revoke
+0011_system.sql            -- audit_log, number_sequences, fn_next_doc_no,
+                           -- fn_assert_stock_integrity
+0012_rls_helpers.sql       -- fn_my_store_ids, fn_is_owner, fn_is_any_owner,
+                           -- rpc_rebuild_stock_balances
+0013_rls_policies.sql      -- toàn bộ policy + revoke + grant
 ```
+
+**Hàm hạ tầng nằm trong 13 file trên, không tách file riêng:**
+
+| Hàm | File | Vì sao |
+|---|---|---|
+| `fn_unaccent_lower`, `fn_today_vn`, `fn_touch_updated_at` | 0001 | Không phụ thuộc bảng nào |
+| `fn_next_doc_no`, `fn_assert_stock_integrity` | 0011 | Cần `number_sequences` / `stock_ledger` |
+| `fn_my_store_ids`, `fn_is_owner`, `fn_is_any_owner` | 0012 | Theo đúng tên file |
+| `rpc_rebuild_stock_balances` | 0012 | Gọi `fn_is_owner`, phải đứng sau nó |
+
+**RPC nghiệp vụ KHÔNG viết ở phase này.** `rpc_pos_checkout`, `rpc_receive_inbound`,
+`rpc_create_receipt`, `rpc_pay_supplier`, `rpc_process_return`, `rpc_submit_stock_take`,
+`rpc_open_shift`/`rpc_close_shift`, `rpc_update_price`, `rpc_void_order` (toàn bộ
+`03-rpc.md`) thuộc phạm vi phase dùng tới chúng — viết ở đây thì không có UI để kiểm
+chứng, và vi phạm quy tắc "không làm nhiều phase trong một PR".
+
+Mỗi RPC mới phải **tự cấp `grant execute ... to authenticated`** trong migration của
+nó. `0013` chỉ cấp cho các hàm tồn tại tại thời điểm đó.
 
 ### 2. Trigger cập nhật `stock_balances`
 
@@ -73,6 +93,22 @@ Thêm script `pnpm db:types`. File này **không sửa tay**.
 `pnpm test:rls` — dùng `service_role` tạo JWT giả lập từng user, chạy hết checklist
 trong `02-phan-quyen.md` mục 5.
 
+### 7. Script kiểm thử ràng buộc schema
+
+`pnpm test:schema` — chứng minh các ràng buộc ở mục 3 thật sự chặn ở tầng database,
+không phải chỉ có trong đầu người viết migration. Chạy trong một transaction và
+rollback ở cuối, không để lại dữ liệu rác.
+
+**Không** nằm trong `pnpm verify` và không nằm trong pre-commit hook — cùng lý do với
+`pnpm test:rls`: cần database thật và cần mạng, không nên chặn từng commit lẻ. Chạy
+thủ công ở bước Kiểm chứng cuối phase.
+
+Lưu ý kỹ thuật quan trọng: `RELEASE SAVEPOINT` **không** kích hoạt constraint trigger
+đang `DEFERRABLE INITIALLY DEFERRED` — chỉ `COMMIT` hoặc `SET CONSTRAINTS ALL IMMEDIATE`
+mới làm được. Script này dùng `SET CONSTRAINTS ALL IMMEDIATE`, và mọi RPC danh mục
+(Phase 3) cũng phải làm đúng như vậy nếu muốn bắt lỗi để dịch sang thông báo cho
+người dùng thay vì để lỗi nổ lúc commit.
+
 ## Ràng buộc
 
 - **Không** cột `avg_cost`, `valuation_rate` ở bất kỳ đâu
@@ -84,6 +120,7 @@ trong `02-phan-quyen.md` mục 5.
 
 - [ ] `supabase db push` chạy sạch trên database trống
 - [ ] `pnpm db:types` sinh được file, `pnpm verify` xanh
+- [ ] `pnpm test:schema` xanh, phủ hết ràng buộc ở mục 3
 - [ ] `pnpm test:rls` xanh, đủ 7 mục trong `02-phan-quyen.md`
 - [ ] `staff` cửa hàng A `select * from orders` **không** thấy đơn cửa hàng B
 - [ ] `insert into orders` trực tiếp bằng role `authenticated` **bị từ chối**

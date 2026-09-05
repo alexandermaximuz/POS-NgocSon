@@ -29,6 +29,24 @@ Trước khi thêm bất kỳ trường, bước xác nhận hay màn hình nào
 - Dexie (offline cache + outbox) — chỉ cho bán hàng
 - ExcelJS (xuất xlsx) · Deploy Vercel
 
+### Công cụ database (devDependency, thêm ở Phase 1)
+
+Máy dev **không có Docker**, nên không dùng Supabase stack local. Mọi lệnh đụng
+database đều trỏ thẳng vào project dev trên cloud.
+
+| Gói | Vai trò | Ghi chú |
+|---|---|---|
+| `supabase` | CLI cho `db push` và `gen types` | **Ghim phiên bản chính xác**, không dùng `^` — CLI đổi hành vi giữa các bản minor |
+| `tsx` | Chạy script `.ts` trong `scripts/` | |
+| `pg` (+ `@types/pg`) | Nối thẳng Postgres cho seed và test | |
+| `dotenv` | Đọc `.env.local` trong script | |
+
+Đừng cài thư viện khác cho cùng mục đích ở phase sau. `scripts/lib/supabase-cli.ts`
+là chỗ duy nhất gọi CLI.
+
+**`gen types` bắt buộc dùng `--project-id`, không dùng `--db-url`**: bản `--db-url`
+khởi động container để introspect và sẽ chết trên máy không có Docker.
+
 ---
 
 ## Năm kỷ luật dữ liệu — không được vi phạm
@@ -97,6 +115,9 @@ RLS phục vụ **tách dữ liệu giữa 2 cửa hàng**, không phải chốn
 - Mỗi phase = 1 branch `phase-N-ten-ngan` + 1 PR. Không push thẳng lên `main`
 - Trước khi viết code: đọc `docs/spec/phase-N.md`, trình bày kế hoạch, chờ tôi duyệt
 - Sau khi code xong: chạy `pnpm verify`, tự sửa hết lỗi, rồi mới commit
+- `pnpm test:schema` và `pnpm test:rls` **chạy thủ công ở bước Kiểm chứng cuối phase**,
+  không nằm trong `verify` và không nằm trong pre-commit hook: chúng cần database
+  thật và cần mạng, không nên chặn từng commit lẻ
 - Commit theo Conventional Commits, tiếng Anh: `feat(pos): add barcode scan`
 - Tạo PR bằng `gh pr create`, mô tả PR viết tiếng Việt, liệt kê rõ **acceptance criteria
   nào đã đạt** của phase đó
@@ -107,13 +128,17 @@ RLS phục vụ **tách dữ liệu giữa 2 cửa hàng**, không phải chốn
 ```bash
 pnpm dev                 # chạy local
 pnpm verify              # next typegen && tsc --noEmit && eslint && next build
-                          # BẮT BUỘC chạy trước khi commit
+                          # BẮT BUỘC chạy trước khi commit — .husky/pre-commit
+                          # tự chạy lệnh này
                           # (Next.js 16 bỏ lệnh `next lint`, dùng thẳng `eslint`;
                           #  cần `next typegen` trước tsc vì typed routes)
-pnpm db:push             # supabase db push
-pnpm db:types            # sinh lại src/lib/db/types.ts
+                          # KHÔNG đụng database, chạy offline được
+pnpm db:push             # áp migration lên project dev (qua SUPABASE_DB_URL)
+pnpm db:seed             # tạo user auth + chạy supabase/seed.sql
+pnpm db:types            # sinh lại src/lib/db/types.ts (qua SUPABASE_ACCESS_TOKEN)
+pnpm test:schema         # ràng buộc ở tầng database có thật sự chặn không
 pnpm test:rls            # kiểm tra RLS tách dữ liệu 2 cửa hàng
-pnpm test:e2e            # Playwright
+pnpm test:e2e            # Playwright — CHƯA CÓ, thuộc phase sau
 ```
 
 ## Quy ước code
@@ -138,7 +163,16 @@ pnpm test:e2e            # Playwright
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY      — dùng ở client
 SUPABASE_SERVICE_ROLE_KEY          — server-only, KHÔNG có tiền tố NEXT_PUBLIC_
+SUPABASE_DB_URL                    — server-only, KHÔNG có tiền tố NEXT_PUBLIC_
+                                     Connection string Postgres của project dev.
+                                     Chỉ dùng cho `pnpm db:push`, `db:seed`,
+                                     `test:schema`, `test:rls`. Không bao giờ
+                                     đưa vào code chạy ở client.
+SUPABASE_ACCESS_TOKEN              — server-only, KHÔNG có tiền tố NEXT_PUBLIC_
+                                     Personal Access Token của Supabase. Đại diện
+                                     cho TOÀN BỘ tài khoản, không riêng project này
+                                     — coi như mật khẩu. Chỉ dùng cho `pnpm db:types`.
 
-Dùng đúng ba tên biến trên, không đổi sang tên khác.
+Dùng đúng năm tên biến trên, không đổi sang tên khác.
 File .env.local đã có sẵn ở máy, không đọc và không ghi đè file này.
 Khi cần biến mới, báo tôi biết để tôi tự thêm.
