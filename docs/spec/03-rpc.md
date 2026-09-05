@@ -4,7 +4,13 @@
 
 Mọi RPC:
 
-- Viết bằng `plpgsql`, `SECURITY DEFINER`, `set search_path = public`
+- Viết bằng `plpgsql`, `SECURITY DEFINER`, `set search_path = ''`
+  (**sửa ở Phase 1**, trước đây ghi `= public`). Trên Supabase, role
+  `authenticated` có quyền `CREATE` trên schema `public` theo mặc định, nên với
+  `search_path = public` một user thường tạo được hàm trùng tên để chiếm quyền
+  của hàm `SECURITY DEFINER`. Quyền `CREATE` đó đã bị thu hồi ở `0013`, nhưng
+  `search_path = ''` + định danh đầy đủ (`public.x`, `extensions.y`) là lớp
+  phòng thủ thứ hai và không tốn gì
 - Nhận `p_payload jsonb`, trả `jsonb`
 - **Kiểm tra quyền ở dòng đầu tiên** — user có thuộc `store_id` không, có đúng role không
 - Chạy trong **một transaction duy nhất**
