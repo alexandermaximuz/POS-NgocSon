@@ -259,12 +259,41 @@ cash_shifts       (id, store_id, user_id, opened_at, closed_at,
                    variance numeric(14,2),
                    status text check (status in ('open','closed')))
 
-cash_transactions (id, shift_id, type text check (type in ('in','out')),
-                   amount, reason, created_at, created_by)
+cash_transactions (id, store_id, shift_id, client_uuid uuid not null unique,
+                   type text check (type in ('in','out')),
+                   amount, reason,
+                   source_type cash_txn_source not null default 'manual',
+                   source_id uuid,
+                   created_at, created_by)
 ```
 
-- `expected_cash = opening_float + tiền mặt bán hàng + thu nợ tiền mặt + cash_in − cash_out`
+`client_uuid`, `source_type` và `source_id` thêm ở `0014` (Phase 2).
+`client_uuid` chống ghi trùng khi bấm đúp hoặc outbox retry — cùng khuôn với
+`orders`, `receipts`, `returns`. `source_type` là enum
+`('manual','receipt','return','supplier_payment')`; `source_id` trỏ về chứng từ gốc
+và bắt buộc NULL khi `source_type = 'manual'`.
+
+**Công thức tiền két — BỐN số hạng:**
+
+```
+expected_cash = opening_float
+              + Σ payments.amount     (method='cash', qua orders.shift_id, orders.status='paid')
+              + Σ cash_transactions   (type='in')
+              − Σ cash_transactions   (type='out')
+```
+
+Bản trước ghi năm số hạng, thêm "thu nợ tiền mặt". Đó là **lỗi**: `receipts` không có
+`shift_id`, nên không có đường nào nối phiếu thu với ca. `rpc_create_receipt` ghi
+`cash_transactions` khi thu tiền mặt (03-rpc.md), tức là thu nợ **đã nằm trong**
+`cash_transactions`. Cộng cả hai là đếm đôi mỗi đồng thu nợ.
+
+> `cash_transactions` là kênh **duy nhất** cho mọi dòng tiền mặt không phải
+> `payments` của đơn bán. Ai thêm luồng tiền mặt mới mà không ghi
+> `cash_transactions` thì đóng ca sai và không có gì báo.
+
 - Đóng ca ghi `variance = counted_cash − expected_cash`, không chặn nếu lệch
+- Mỗi cửa hàng chỉ có **một** ca `open` tại một thời điểm
+  (`ux_cash_shifts_one_open_store`, thêm ở `0014`)
 
 ## 13. Hệ thống
 

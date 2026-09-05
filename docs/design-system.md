@@ -61,7 +61,7 @@ There is **no dark theme** on the live site. No `.dark` ruleset was served.
 | Token | oklch | ≈ hex | Used for |
 |---|---|---|---|
 | `--surface-base` | `1 0 0` | `#FFFFFF` | page, cards, table |
-| `--surface-sidebar` | `.979 0 0` | `#F8F8F8` | sidebar |
+| `--surface-sidebar` | `.979 0 0` | `#F8F8F8` | ⚠️ **KHÔNG dùng trong dự án này** — xem ghi chú §4 |
 | `--surface-gray-2` | `.964 0 0` | `#F3F3F3` | input background |
 | `--surface-gray-3` | `.946 0 0` | `#EBEBEB` | hover |
 | `--outline-gray-2` | `.913 0 0` | `#E2E2E2` | card border |
@@ -128,7 +128,7 @@ a "Business Drivers" band of charts between the KPI row and the table.
 
 | Part | Spec |
 |---|---|
-| **Sidebar** | width ≈ 192px, `bg-surface-sidebar`, **no border**, `transition-[width] 300ms ease-in-out`, hidden below the `sm` breakpoint. Section headings 12px `ink-gray-5` in sentence case; items 13–14px with 16px line icons. |
+| **Sidebar** | width ≈ 192px, **no border**, `transition-[width] 300ms ease-in-out`, hidden below the `sm` breakpoint. Section headings 12px in sentence case; items 13–14px with 16px line icons.<br>⚠️ **Nền sidebar trong POS Ngọc Sơn là teal đậm `#033a3a`, không phải `--surface-sidebar` #F8F8F8.** Tài liệu này reverse-engineer từ CRM 3S; dự án này giữ nhận diện teal của v1 theo `phase-2.md` và `05-giao-dien.md`. Dùng biến `--sidebar*` trong `globals.css` (`bg-sidebar`, `text-sidebar-foreground`, `bg-sidebar-accent`), **không** dùng `--surface-sidebar`. |
 | **Topbar** | ~48px tall, white, title 18px/600 left, primary action right. |
 | **KPI card** | white, radius **12px**, border **0.8px** `outline-gray-2`, padding 16px, **no shadow**, height ≈ 73px. Label 12px `ink-gray-5`, value 18px/600, optional third line for delta or context in a status colour. |
 | **Primary button** | `bg: ink-gray-9` (#171717), white text, height **28px**, padding `0 8px`, radius 8px, 14px/420, no shadow. |
@@ -178,7 +178,7 @@ import instead:
   --color-ink-gray-8: var(--ink-gray-8);
   --color-ink-gray-9: var(--ink-gray-9);
   --color-surface-base: var(--surface-base);
-  --color-surface-sidebar: var(--surface-sidebar);
+  /* --color-surface-sidebar: KHÔNG map. Sidebar dùng --sidebar (teal #033a3a). */
   --color-surface-gray-2: var(--surface-gray-2);
   --color-surface-gray-3: var(--surface-gray-3);
   --color-outline-gray-1: var(--outline-gray-1);

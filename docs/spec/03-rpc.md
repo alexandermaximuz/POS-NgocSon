@@ -129,20 +129,53 @@ Nếu ca đang mở và `method = 'cash'` → ghi thêm `cash_transactions` đ�
 
 ---
 
-## `rpc_open_shift` / `rpc_close_shift`
+## `rpc_open_shift` / `rpc_close_shift` / `rpc_cash_txn` / `rpc_current_shift`
 
-**Mở ca:** kiểm tra user chưa có ca nào `open` ở cửa hàng đó. Ghi `opening_float`.
+Viết ở Phase 2, migration `0014_shift_rpc.sql`.
 
-**Đóng ca:** tính
+**Ca thuộc về CỬA HÀNG, không thuộc về người dùng.** `ux_cash_shifts_one_open_store`
+cho phép đúng một ca `open` mỗi cửa hàng. Bản trước định nghĩa theo user; đổi vì từ
+Phase 6 `rpc_create_receipt` và `rpc_pay_supplier` phải biết ghi `cash_transactions`
+vào ca nào — "ca open của cửa hàng" là câu trả lời xác định, "ca open của
+`auth.uid()`" thì không: owner thu nợ trong lúc staff đang trực sẽ ghi vào một ca
+thứ hai không ai đóng, hoặc không ghi vào đâu cả và tiền biến mất khỏi báo cáo két.
+
+**Mở ca:** kiểm tra cửa hàng chưa có ca nào `open`. Nếu có, raise
+`SHIFT_ALREADY_OPEN` kèm `detail` là tên người đang giữ ca — giao diện cần tên đó.
+Ghi `opening_float`.
+
+**Đóng ca:** `staff` chỉ đóng ca của chính mình; `owner` đóng được ca của bất kỳ ai
+ở cửa hàng mình quản lý (thiếu đường này thì staff quên đóng ca hôm qua = hôm nay
+cửa hàng không bán được).
+
 ```
 expected_cash = opening_float
-              + tiền mặt bán hàng trong ca
-              + thu nợ tiền mặt trong ca
-              + cash_transactions in
-              − cash_transactions out
+              + Σ payments.amount     (method='cash', qua orders.shift_id, orders.status='paid')
+              + Σ cash_transactions   (type='in')
+              − Σ cash_transactions   (type='out')
 ```
+
+**BỐN số hạng, không phải năm.** Xem 01-du-lieu.md §12: `receipts` không có
+`shift_id`, thu nợ tiền mặt đã nằm trong `cash_transactions`, cộng lại là đếm đôi.
+
 Ghi `counted_cash` do người dùng đếm, `variance = counted_cash − expected_cash`.
-**Không chặn** nếu lệch — chỉ ghi nhận và hiển thị.
+**Không chặn** nếu lệch — chỉ ghi nhận, hiển thị, và ghi `audit_log` khi `variance <> 0`.
+
+Lọc `orders.status = 'paid'` theo lối khẳng định, **không** dùng `<> 'void'`:
+`order_status` có ba giá trị, `<> 'void'` sẽ lọt đơn `held`.
+
+**Ràng buộc bắt buộc với các RPC khác** (không tuân thủ thì đóng ca sai âm thầm):
+
+| RPC | Phải làm gì |
+|---|---|
+| `rpc_pos_checkout` | Khi chuyển `held` → `paid`, **bắt buộc** `update orders set shift_id = <ca đang mở>`. `orders.shift_id` gán lúc treo đơn; đơn treo qua đêm rồi thanh toán tiền mặt sáng hôm sau sẽ quy về ca đã đóng và đã chốt `expected_cash` — tiền có thật trong két nhưng không xuất hiện ở bất kỳ ca nào |
+| `rpc_void_order` | **KHÔNG** ghi `cash_transactions`. Bộ lọc `status='paid'` đã tự giảm `expected_cash` khi huỷ đơn; ghi thêm là trừ hai lần |
+| `rpc_create_receipt` | `method='cash'` → `cash_transactions` type `in`. `method='credit'` là đối trừ công nợ, không phải tiền thật — không ghi |
+| `rpc_process_return` | `refund_method='cash'` → type `out` |
+| `rpc_pay_supplier` | `method='cash'` → type `out`. `supplier_payments` cũng không có `shift_id` |
+
+`rpc_cash_txn` chỉ sinh phiếu `source_type = 'manual'` và nhận `client_uuid` từ
+client để chống ghi trùng. Các RPC trên ghi thẳng vào bảng với `source_type` tương ứng.
 
 ---
 
