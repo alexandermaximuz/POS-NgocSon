@@ -57,6 +57,62 @@ Toàn bộ luồng bán hàng phải thao tác được **hoàn toàn bằng bà
 **Không bao giờ** hiển thị số minh hoạ khi chưa có dữ liệu.
 (v1 ghi "1.847 mã hàng" trong khi chỉ có 10 — không lặp lại.)
 
+## Xác nhận thao tác
+
+Hai quy tắc dưới đây áp dụng cho **toàn hệ thống**, mọi phase, không riêng màn nào.
+
+### 1. Ghi chứng từ thành công phải có thông báo
+
+> Mọi thao tác **post chứng từ** thành công phải hiện thông báo xác nhận.
+
+Không được chỉ đóng modal rồi cập nhật số liệu âm thầm. Người đứng bán không nhìn
+chằm chằm vào topbar; họ bấm nút rồi nhìn sang khách. Thiếu thông báo thì không phân
+biệt được "đã ghi xong" với "bấm hụt", và cách xử lý tự nhiên là **bấm lại** — đúng
+thứ sinh ra chứng từ trùng.
+
+Thông báo phải nêu **con số vừa ghi**, không phải câu chung chung:
+
+| Không đủ | Đủ |
+|---|---|
+| "Thành công" | "Đã ghi phiếu chi 200.000. Tiền két: 4.800.000" |
+| "Đã lưu" | "Đã mở ca. Tiền đầu ca 5.000.000" |
+| "Hoàn tất" | "Đã tạo đơn HD-CH1-2026-00042. Tổng 1.250.000" |
+
+Con số trong thông báo lấy từ **kết quả RPC trả về**, không phải từ giá trị người
+dùng vừa gõ vào form — đó là cách duy nhất để thông báo chứng minh được server đã
+thực sự ghi, chứ không chỉ nhắc lại điều client vừa nghĩ.
+
+Dùng `sonner` qua `src/components/ui/sonner.tsx`, đặt ở `bottom-center`.
+
+Áp dụng cho: mở ca, đóng ca, phiếu thu/chi, tạo đơn, nhập kho, thu tiền nợ, trả hàng,
+chốt kiểm kê, sửa bảng giá, huỷ đơn.
+
+### 2. Hành động không hoàn tác phải có bước xác nhận
+
+> Mọi hành động **không hoàn tác được** hoặc **có hậu quả tài chính** phải có bước
+> xác nhận trước khi thực hiện.
+
+Hộp thoại xác nhận phải hiện **đúng những con số sẽ được ghi**, để người dùng đối
+chiếu lần cuối — không phải một câu "Bạn có chắc không?" trống rỗng. Câu hỏi trống
+rỗng bị bấm qua theo phản xạ sau ngày thứ hai, và lúc đó nó không còn bảo vệ ai.
+
+Nút xác nhận cuối phải nói rõ việc gì sẽ xảy ra ("Đóng ca", "Huỷ đơn"), không phải
+"OK". Nút huỷ đứng trước nút xác nhận.
+
+Áp dụng cho:
+
+| Hành động | Hộp thoại phải hiện |
+|---|---|
+| Đóng ca | Tiền dự kiến, tiền thực đếm, chênh lệch, và câu "đóng rồi không mở lại được" |
+| Huỷ đơn | Số đơn, tổng tiền, và hàng sẽ được nhập trả lại kho |
+| Xoá sản phẩm / khách / NCC | Tên bản ghi, và những gì sẽ mất theo |
+| Chốt phiếu kiểm kê | Số dòng lệch và tổng chênh lệch |
+| Sửa giá bảng giá | Giá cũ → giá mới |
+
+**Không** áp dụng cho thao tác sửa lại được dễ dàng: thêm hàng vào giỏ, treo đơn,
+đổi cửa hàng, phiếu thu/chi (sai thì lập phiếu ngược lại). Hỏi xác nhận ở những chỗ
+đó chỉ làm chậm và làm nhờn phản xạ.
+
 ## Thông báo lỗi nghiệp vụ
 
 Dịch mã lỗi từ RPC sang tiếng Việt có ngữ cảnh:

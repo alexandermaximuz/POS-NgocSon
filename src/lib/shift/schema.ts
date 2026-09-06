@@ -26,6 +26,11 @@ export const closeShiftResultSchema = z.object({
 
 export const cashTxnResultSchema = z.object({
   cash_txn_id: z.uuid(),
+  /** Số tiền ĐÃ LƯU. Khác số vừa gõ khi `duplicate` — xem 0015. */
+  amount: money,
+  type: z.enum(["in", "out"]),
+  /** `true` khi `client_uuid` đã tồn tại: RPC trả phiếu cũ, không ghi thêm. */
+  duplicate: z.boolean(),
   expected_cash: money,
 });
 

@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
+import { Toaster } from "@/components/ui/sonner";
 
 /**
  * `useState` chứ không phải biến module: mỗi request trên server phải có
@@ -23,5 +24,15 @@ export function Providers({ children }: { children: ReactNode }) {
       })
   );
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      {/*
+        Toaster nằm ở root layout nên nó sống sót qua điều hướng phía client. Nhờ đó
+        thông báo "đã mở ca" bật lên rồi `router.push` sang trang khác vẫn đọc được,
+        thay vì biến mất cùng trang cũ.
+      */}
+      <Toaster />
+    </QueryClientProvider>
+  );
 }

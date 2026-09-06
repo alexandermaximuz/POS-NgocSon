@@ -177,6 +177,15 @@ Lọc `orders.status = 'paid'` theo lối khẳng định, **không** dùng `<> 
 `rpc_cash_txn` chỉ sinh phiếu `source_type = 'manual'` và nhận `client_uuid` từ
 client để chống ghi trùng. Các RPC trên ghi thẳng vào bảng với `source_type` tương ứng.
 
+Nó trả về `amount`, `type` và `duplicate` **đọc từ dòng đã lưu** (`0015`), không phải
+từ payload. Khi `client_uuid` đã tồn tại, RPC trả phiếu cũ và `duplicate = true` —
+giao diện phải nói "phiếu này đã ghi trước đó", không được báo đã ghi số vừa gõ.
+
+> Quy tắc chung cho mọi RPC ghi chứng từ: **trả về con số đã lưu**, đủ để giao diện
+> dựng thông báo xác nhận mà không phải đọc lại state của form. Idempotency làm cho
+> hai thứ đó khác nhau, và lúc đó chỉ con số của server là đúng
+> (05-giao-dien.md §"Xác nhận thao tác").
+
 ---
 
 ## `rpc_update_price(p_payload jsonb) → jsonb`

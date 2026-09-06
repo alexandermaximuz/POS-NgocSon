@@ -3,11 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { actionError, type ActionResult } from "@/lib/actions";
 import { authErrorMessage } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { clearStoreCookie, getSession, setStoreCookie } from "./session";
 
-export type ActionResult = { ok: true } | { ok: false; message: string };
+/**
+ * Đăng nhập, đăng xuất và đổi cửa hàng vẫn tự `redirect()`: chúng không ghi chứng
+ * từ nên không cần thông báo xác nhận, và điều hướng ngay là phản hồi rõ ràng nhất.
+ */
 
 const loginSchema = z.object({
   email: z.email("Email không hợp lệ"),
@@ -15,10 +19,10 @@ const loginSchema = z.object({
   next: z.string().optional(),
 });
 
-export async function signIn(input: unknown): Promise<ActionResult> {
+export async function signIn(input: unknown): Promise<ActionResult<never>> {
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, message: "Email hoặc mật khẩu chưa hợp lệ." };
+    return actionError("Email hoặc mật khẩu chưa hợp lệ.");
   }
 
   const supabase = await createClient();
@@ -27,7 +31,7 @@ export async function signIn(input: unknown): Promise<ActionResult> {
     password: parsed.data.password,
   });
   if (error !== null) {
-    return { ok: false, message: authErrorMessage(error.code, error.message) };
+    return actionError(authErrorMessage(error.code, error.message));
   }
 
   // Cookie cửa hàng của phiên trước không được sống sót qua lần đăng nhập mới:
@@ -59,13 +63,13 @@ export async function signOut(): Promise<never> {
  * bất đồng bộ, sẽ có một khoảnh khắc giao diện còn hiện số liệu của cửa hàng cũ
  * dưới tên cửa hàng mới. Redirect thì trang tiếp theo dựng lại từ đầu.
  */
-export async function selectStore(storeId: string): Promise<ActionResult> {
+export async function selectStore(storeId: string): Promise<ActionResult<never>> {
   const session = await getSession();
   if (session === null) redirect("/login");
 
   // Cookie do server ghi, nhưng giá trị đến từ client — vẫn phải đối chiếu.
   if (!session.memberships.some((m) => m.storeId === storeId)) {
-    return { ok: false, message: "Bạn không có quyền vào cửa hàng này." };
+    return actionError("Bạn không có quyền vào cửa hàng này.");
   }
 
   await setStoreCookie(storeId);
