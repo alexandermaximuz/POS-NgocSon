@@ -1,12 +1,16 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { MoneyInput } from "@/components/common/money-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { formatMoney } from "@/lib/format";
 import { openShift } from "@/lib/shift/actions";
 
 export function OpenShiftForm({ next }: { next: string }) {
+  const router = useRouter();
   const [openingFloat, setOpeningFloat] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -14,9 +18,16 @@ export function OpenShiftForm({ next }: { next: string }) {
   function submit(): void {
     setError(null);
     startTransition(async () => {
-      // openShift redirect khi thành công, nên chỉ nhánh lỗi quay về đây.
       const result = await openShift({ openingFloat }, next);
-      if (!result.ok) setError(result.message);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      // Toaster nằm ở root layout nên thông báo sống sót qua `router.push`.
+      toast.success("Đã mở ca", {
+        description: `Tiền đầu ca ${formatMoney(result.data.openingFloat)}`,
+      });
+      router.push(result.data.redirectTo);
     });
   }
 

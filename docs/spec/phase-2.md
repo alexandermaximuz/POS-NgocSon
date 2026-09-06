@@ -54,6 +54,16 @@ Người dùng đăng nhập được, chọn cửa hàng, mở ca, và thấy k
 - Phiếu thu/chi tiền mặt ngoài bán hàng (`cash_transactions`): nút "Thu khác"/"Chi khác".
   Client sinh `client_uuid` một lần mỗi lần mở hộp thoại — bấm đúp không được tạo hai phiếu
 
+### 5. Xác nhận thao tác
+
+Theo hai quy ước chung ở `05-giao-dien.md` §"Xác nhận thao tác":
+
+- Mở ca, đóng ca, phiếu thu/chi đều hiện **toast** kèm con số server vừa ghi
+  (`sonner`, `bottom-center`)
+- Đóng ca đi qua **hộp thoại xác nhận** hiện tiền dự kiến, tiền thực đếm, chênh lệch,
+  và cảnh báo không mở lại được. Phiếu thu/chi **không** hỏi xác nhận — sai thì lập
+  phiếu ngược lại, hỏi ở đó chỉ làm nhờn phản xạ
+
 ### 4. Khung ứng dụng
 
 - Sidebar: Bán hàng · Nhập kho · Tồn kho · Công nợ · Trả hàng · Sản phẩm ·
@@ -103,6 +113,10 @@ Ba lỗi trong spec được phát hiện khi rà soát schema và đã sửa v�
    re-stamp khi `held` → `paid`, nếu không tiền của đơn treo qua đêm không vào ca nào
 3. **`cash_transactions` thiếu `client_uuid`** — chứng từ duy nhất không có, trong khi
    `orders`/`receipts`/`returns` đều có. Vá ở `0014` cùng `source_type`/`source_id`
+4. **`rpc_cash_txn` không trả số tiền đã lưu** (`0015`). Phát hiện khi kiểm thử toast:
+   gửi lại cùng `client_uuid` với số khác thì RPC đúng (trả phiếu cũ, không ghi thêm)
+   nhưng giao diện báo "Đã ghi phiếu chi <số mới>" — khẳng định một việc hệ thống
+   không làm. Nay RPC trả `amount`, `type`, `duplicate` đọc từ dòng đã lưu
 
 Ngoài ra: `pg_default_acl` của schema `public` **rỗng** trên database dev, nên
 `alter default privileges` ở `0013:326` không còn hiệu lực — hàm mới tạo trong

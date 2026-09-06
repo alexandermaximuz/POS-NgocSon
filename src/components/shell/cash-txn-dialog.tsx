@@ -2,6 +2,7 @@
 
 import { Minus, Plus } from "lucide-react";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { MoneyInput } from "@/components/common/money-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatMoney } from "@/lib/format";
 import { createCashTxn } from "@/lib/shift/actions";
 import type { Enums } from "@/lib/db/types";
 
@@ -57,8 +59,27 @@ export function CashTxnDialog({ type }: { type: CashTxnType }) {
     setError(null);
     startTransition(async () => {
       const result = await createCashTxn({ type, amount, reason }, clientUuid);
-      if (result.ok) setOpen(false);
-      else setError(result.message);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setOpen(false);
+
+      // Mọi con số lấy từ kết quả RPC, kể cả loại phiếu: thông báo phải mô tả thứ
+      // server đã ghi, không nhắc lại thứ client vừa gõ. Khác biệt lộ ra đúng lúc
+      // `duplicate` — gửi lại cùng client_uuid với số khác thì phiếu cũ mới là sự thật.
+      const { amount: savedAmount, type: savedType, duplicate, expectedCash } = result.data;
+      const label = `Phiếu ${savedType === "in" ? "thu" : "chi"} ${formatMoney(savedAmount)}`;
+
+      if (duplicate) {
+        toast.info(`${label} đã được ghi trước đó`, {
+          description: `Không tạo phiếu mới. Tiền két: ${formatMoney(expectedCash)}`,
+        });
+      } else {
+        toast.success(`Đã ghi ${label.toLowerCase()}`, {
+          description: `Tiền két: ${formatMoney(expectedCash)}`,
+        });
+      }
     });
   }
 
