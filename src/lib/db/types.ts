@@ -144,31 +144,40 @@ export type Database = {
       cash_transactions: {
         Row: {
           amount: number
+          client_uuid: string
           created_at: string
           created_by: string | null
           id: string
           reason: string
           shift_id: string
+          source_id: string | null
+          source_type: Database["public"]["Enums"]["cash_txn_source"]
           store_id: string
           type: Database["public"]["Enums"]["cash_txn_type"]
         }
         Insert: {
           amount: number
+          client_uuid: string
           created_at?: string
           created_by?: string | null
           id?: string
           reason: string
           shift_id: string
+          source_id?: string | null
+          source_type?: Database["public"]["Enums"]["cash_txn_source"]
           store_id: string
           type: Database["public"]["Enums"]["cash_txn_type"]
         }
         Update: {
           amount?: number
+          client_uuid?: string
           created_at?: string
           created_by?: string | null
           id?: string
           reason?: string
           shift_id?: string
+          source_id?: string | null
+          source_type?: Database["public"]["Enums"]["cash_txn_source"]
           store_id?: string
           type?: Database["public"]["Enums"]["cash_txn_type"]
         }
@@ -1754,6 +1763,7 @@ export type Database = {
           variant_id: string
         }[]
       }
+      fn_assert_store_member: { Args: { p_store: string }; Returns: undefined }
       fn_is_any_owner: { Args: never; Returns: boolean }
       fn_is_owner: { Args: { p_store: string }; Returns: boolean }
       fn_my_store_ids: { Args: never; Returns: string[] }
@@ -1761,12 +1771,18 @@ export type Database = {
         Args: { p_store: string; p_type: string }
         Returns: string
       }
+      fn_shift_expected_cash: { Args: { p_shift: string }; Returns: number }
       fn_today_vn: { Args: never; Returns: string }
       fn_unaccent_lower: { Args: { p_text: string }; Returns: string }
+      rpc_cash_txn: { Args: { p_payload: Json }; Returns: Json }
+      rpc_close_shift: { Args: { p_payload: Json }; Returns: Json }
+      rpc_current_shift: { Args: { p_payload: Json }; Returns: Json }
+      rpc_open_shift: { Args: { p_payload: Json }; Returns: Json }
       rpc_rebuild_stock_balances: { Args: { p_store: string }; Returns: Json }
     }
     Enums: {
       barcode_source: "manufacturer" | "internal"
+      cash_txn_source: "manual" | "receipt" | "return" | "supplier_payment"
       cash_txn_type: "in" | "out"
       customer_group: "retail" | "wholesale"
       entity_status: "active" | "inactive"
@@ -1923,6 +1939,7 @@ export const Constants = {
   public: {
     Enums: {
       barcode_source: ["manufacturer", "internal"],
+      cash_txn_source: ["manual", "receipt", "return", "supplier_payment"],
       cash_txn_type: ["in", "out"],
       customer_group: ["retail", "wholesale"],
       entity_status: ["active", "inactive"],

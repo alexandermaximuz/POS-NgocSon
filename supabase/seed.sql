@@ -27,6 +27,28 @@ values
    'Cảm ơn quý khách. Đổi trả trong 30 ngày kèm hoá đơn.', 30);
 
 -- ---------------------------------------------------------------------------
+-- Hồ sơ người dùng.
+--
+-- Bình thường trg_auth_user_created (0002) lo việc này. Nhưng nó chỉ chạy lúc
+-- INSERT vào auth.users, mà auth.users KHÔNG bị xoá khi seed lại bằng
+-- `drop schema public cascade` — chỉ public.profiles và chính cái trigger đó bị
+-- xoá. Lần push tiếp theo dựng lại trigger, còn ba user cũ thì vĩnh viễn không có
+-- profile, vì db-seed.ts thấy user đã tồn tại nên không tạo lại.
+--
+-- Hậu quả không hiện ra ngay: mọi chỗ hiển thị tên người dùng (topbar "người trực"
+-- ở Phase 2) rơi về NULL. Backfill ở đây để seed tự chữa, không phụ thuộc vào việc
+-- user được tạo trước hay sau lần push nào.
+-- ---------------------------------------------------------------------------
+insert into public.profiles (id, full_name, phone)
+select u.id,
+       nullif(u.raw_user_meta_data ->> 'full_name', ''),
+       nullif(u.raw_user_meta_data ->> 'phone', '')
+from auth.users u
+on conflict (id) do update
+  set full_name = coalesce(excluded.full_name, public.profiles.full_name),
+      phone     = coalesce(excluded.phone, public.profiles.phone);
+
+-- ---------------------------------------------------------------------------
 -- Gán vai trò. User do scripts/db-seed.ts tạo trước qua Auth Admin API.
 -- ---------------------------------------------------------------------------
 insert into public.store_members (store_id, user_id, role)

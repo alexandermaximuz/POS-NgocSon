@@ -53,7 +53,9 @@ khởi động container để introspect và sẽ chết trên máy không có 
 
 1. **Mọi số lượng lưu ở đơn vị gốc.** Chục/thùng/hộp chỉ là hệ số quy đổi khi nhập và hiển thị.
 2. **`stock_ledger` chỉ ghi thêm.** Tồn kho = tổng cộng dồn từ ledger. Sai thì lập phiếu
-   điều chỉnh, không bao giờ ghi đè.
+   điều chỉnh, không bao giờ ghi đè. Tương tự với tiền mặt: `cash_transactions` là kênh
+   **duy nhất** cho mọi dòng tiền mặt không phải `payments` của đơn bán. Thêm luồng tiền
+   mặt mới mà không ghi vào đó thì đóng ca sai và không có gì báo.
 3. **Chứng từ đã chốt là bất biến.** Sửa đơn = huỷ đơn cũ + tạo đơn mới, có dấu vết.
 4. **Giá nằm ở bảng giá**, không nằm ở sản phẩm. Mỗi cửa hàng có bảng giá lẻ và sỉ riêng.
 5. **Postgres là nguồn sự thật duy nhất.** IndexedDB chỉ là cache + hàng đợi.
@@ -88,6 +90,17 @@ khởi động container để introspect và sẽ chết trên máy không có 
 | `staff` | 1 cửa hàng được gán. Bán hàng, nhập kho, thu tiền nợ, kiểm kê, xem tồn |
 
 RLS phục vụ **tách dữ liệu giữa 2 cửa hàng**, không phải chống người dùng nội bộ.
+
+**Xác thực chỉ có một đường: email + password của Supabase Auth**, cho cả hai vai
+trò. Không PIN, không OAuth, không magic link.
+
+Cửa hàng đang chọn nằm ở cookie `ns_store` (httpOnly). `src/lib/auth/session.ts` là
+nơi **duy nhất** được đọc/ghi cookie đó, và nó luôn đối chiếu lại với `store_members`
+ở mỗi request. Không component hay route nào khác được đọc `document.cookie` hoặc tự
+truy vấn `store_members` để suy ra cửa hàng đang chọn.
+
+Mỗi cửa hàng chỉ có **một** ca `open` tại một thời điểm — ca thuộc về cửa hàng, không
+thuộc về người dùng.
 
 ---
 
