@@ -1774,11 +1774,19 @@ export type Database = {
       fn_shift_expected_cash: { Args: { p_shift: string }; Returns: number }
       fn_today_vn: { Args: never; Returns: string }
       fn_unaccent_lower: { Args: { p_text: string }; Returns: string }
+      fn_variant_code_suffix: { Args: { p_color: string }; Returns: string }
+      rpc_add_internal_barcode: { Args: { p_payload: Json }; Returns: Json }
       rpc_cash_txn: { Args: { p_payload: Json }; Returns: Json }
       rpc_close_shift: { Args: { p_payload: Json }; Returns: Json }
       rpc_current_shift: { Args: { p_payload: Json }; Returns: Json }
+      rpc_delete_item_group: { Args: { p_payload: Json }; Returns: Json }
+      rpc_delete_product: { Args: { p_payload: Json }; Returns: Json }
+      rpc_import_prices: { Args: { p_payload: Json }; Returns: Json }
+      rpc_import_products: { Args: { p_payload: Json }; Returns: Json }
       rpc_open_shift: { Args: { p_payload: Json }; Returns: Json }
       rpc_rebuild_stock_balances: { Args: { p_store: string }; Returns: Json }
+      rpc_save_product: { Args: { p_payload: Json }; Returns: Json }
+      rpc_update_price: { Args: { p_payload: Json }; Returns: Json }
     }
     Enums: {
       barcode_source: "manufacturer" | "internal"

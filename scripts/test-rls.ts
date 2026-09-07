@@ -36,6 +36,13 @@ interface Fixture {
   ch2PriceItemId: string;
   ledgerId: string;
   tables: string[];
+  // Danh mục (Phase 3) — bảng dùng chung, không có store_id.
+  productId: string;
+  variantId: string;
+  itemGroupId: string;
+  uomId: string;
+  ch1PriceListId: string;
+  ch2PriceListId: string;
 }
 
 async function loadFixture(): Promise<Fixture> {
@@ -62,6 +69,22 @@ async function loadFixture(): Promise<Fixture> {
       ),
       ledgerId: await one(`select id::text as v from public.stock_ledger limit 1`),
       tables: tables.rows.map((r) => r.tablename),
+      productId: await one(`select id::text as v from public.products order by sku limit 1`),
+      variantId: await one(
+        `select id::text as v from public.product_variants order by variant_code limit 1`
+      ),
+      itemGroupId: await one(`select id::text as v from public.item_groups order by code limit 1`),
+      uomId: await one(`select id::text as v from public.uoms order by code limit 1`),
+      ch1PriceListId: await one(
+        `select pl.id::text as v from public.price_lists pl
+         join public.stores s on s.id = pl.store_id
+         where s.code = 'CH1' and pl.kind = 'retail' limit 1`
+      ),
+      ch2PriceListId: await one(
+        `select pl.id::text as v from public.price_lists pl
+         join public.stores s on s.id = pl.store_id
+         where s.code = 'CH2' and pl.kind = 'retail' limit 1`
+      ),
     };
   });
 }
@@ -315,6 +338,158 @@ async function main(): Promise<void> {
 
   for (const fn of ["rpc_open_shift", "rpc_close_shift", "rpc_cash_txn", "rpc_current_shift"]) {
     const r = await anon.rpc(fn, { p_payload: { store_id: fx.ch1 } });
+    if (r.error !== null) ok(`anon gọi ${fn} → bị từ chối`, r.error.code);
+    else bad(`anon gọi ${fn} → bị từ chối`, "GỌI ĐƯỢC");
+  }
+
+  // ── 9. Danh mục: đọc chung, ghi chỉ owner (0013 §5.2, ngoại lệ customers) ──
+  //
+  // Danh mục KHÔNG có store_id nên không có gì để tách giữa hai cửa hàng. Thứ
+  // cần chứng minh ở đây là ranh giới vai trò: staff bán hàng cần ĐỌC được toàn
+  // bộ danh mục, nhưng không được sửa nó.
+  console.log("\n9. Danh mục dùng chung: staff đọc được, không sửa được");
+
+  const productsSeenByStaff = await countRows(staff1, "products");
+  if (productsSeenByStaff > 0) {
+    ok("staff đọc được danh mục sản phẩm", `${String(productsSeenByStaff)} dòng`);
+  } else {
+    bad("staff đọc được danh mục sản phẩm", `${String(productsSeenByStaff)} · ${lastError}`);
+  }
+
+  const productIns = await staff1.from("products").insert({
+    sku: `ZZRLS-${Date.now().toString(36)}`,
+    name: "Hàng thử RLS",
+    item_group_id: fx.itemGroupId,
+    base_uom_id: fx.uomId,
+  });
+  if (productIns.error !== null) ok("staff thêm products → bị từ chối", productIns.error.code);
+  else bad("staff thêm products → bị từ chối", "THÊM ĐƯỢC");
+
+  const productUpd = await staff1
+    .from("products")
+    .update({ name: "Đổi tên trái phép" })
+    .eq("id", fx.productId)
+    .select();
+  if (productUpd.error !== null || (productUpd.data?.length ?? 0) === 0) {
+    ok("staff sửa products → không đổi được dòng nào", productUpd.error?.code ?? "0 dòng");
+  } else {
+    bad("staff sửa products → không đổi được dòng nào", "SỬA ĐƯỢC");
+  }
+
+  // Ngoại lệ có chủ đích: khách sỉ mới tới quầy, staff phải tạo được hồ sơ ngay.
+  const customerCode = `ZZ${Date.now().toString(36).toUpperCase().slice(-8)}`;
+  const customerIns = await staff1
+    .from("customers")
+    .insert({ code: customerCode, name: "Khách thử RLS" })
+    .select("id");
+  if (customerIns.error === null && (customerIns.data?.length ?? 0) === 1) {
+    ok("staff THÊM được khách hàng (ngoại lệ 02-phan-quyen.md §4.2)");
+  } else {
+    bad("staff THÊM được khách hàng", customerIns.error?.message ?? "không tạo được dòng nào");
+  }
+
+  const newCustomerId = customerIns.data?.[0]?.id;
+  if (typeof newCustomerId === "string") {
+    const customerUpd = await staff1
+      .from("customers")
+      .update({ name: "Sửa trái phép" })
+      .eq("id", newCustomerId)
+      .select();
+    if (customerUpd.error !== null || (customerUpd.data?.length ?? 0) === 0) {
+      ok("staff SỬA khách hàng → không đổi được dòng nào", customerUpd.error?.code ?? "0 dòng");
+    } else {
+      bad("staff SỬA khách hàng → không đổi được dòng nào", "SỬA ĐƯỢC");
+    }
+
+    const customerDel = await staff1.from("customers").delete().eq("id", newCustomerId).select();
+    if (customerDel.error !== null || (customerDel.data?.length ?? 0) === 0) {
+      ok("staff XOÁ khách hàng → không xoá được dòng nào", customerDel.error?.code ?? "0 dòng");
+    } else {
+      bad("staff XOÁ khách hàng → không xoá được dòng nào", "XOÁ ĐƯỢC");
+    }
+
+    // Dọn dấu vết: owner xoá hộ, để lần chạy sau không tích rác trên dev.
+    await owner.from("customers").delete().eq("id", newCustomerId);
+  }
+
+  // ── 10. RPC danh mục (0016, 0017) ────────────────────────────────────────
+  console.log("\n10. RPC danh mục: chặn ở dòng đầu tiên của hàm");
+
+  const staffSave = await staff1.rpc("rpc_save_product", {
+    p_payload: {
+      sku: "ZZRLS2",
+      name: "Hàng thử",
+      item_group_id: fx.itemGroupId,
+      base_uom_id: fx.uomId,
+    },
+  });
+  if (staffSave.error?.message === "PERMISSION_DENIED") {
+    ok("staff gọi rpc_save_product → PERMISSION_DENIED");
+  } else {
+    bad("staff gọi rpc_save_product → PERMISSION_DENIED", staffSave.error?.message ?? "GHI ĐƯỢC");
+  }
+
+  const staffPrice = await staff1.rpc("rpc_update_price", {
+    p_payload: {
+      price_list_id: fx.ch1PriceListId,
+      product_id: fx.productId,
+      price_per_base_unit: 1,
+    },
+  });
+  if (staffPrice.error?.message === "PERMISSION_DENIED") {
+    ok("staff gọi rpc_update_price → PERMISSION_DENIED");
+  } else {
+    bad("staff gọi rpc_update_price → PERMISSION_DENIED", staffPrice.error?.message ?? "GHI ĐƯỢC");
+  }
+
+  // owner CH1 không sở hữu CH2? Trong seed thì owner sở hữu cả hai, nên phép thử
+  // cách ly cửa hàng ở đây phải dùng staff — người chỉ thuộc đúng một cửa hàng.
+  const staffCrossPrice = await staff1.rpc("rpc_update_price", {
+    p_payload: {
+      price_list_id: fx.ch2PriceListId,
+      product_id: fx.productId,
+      price_per_base_unit: 1,
+    },
+  });
+  if (staffCrossPrice.error?.message === "PERMISSION_DENIED") {
+    ok("staff CH1 đổi giá bảng giá CH2 → PERMISSION_DENIED");
+  } else {
+    bad(
+      "staff CH1 đổi giá bảng giá CH2 → PERMISSION_DENIED",
+      staffCrossPrice.error?.message ?? "GHI ĐƯỢC"
+    );
+  }
+
+  const staffBarcode = await staff1.rpc("rpc_add_internal_barcode", {
+    p_payload: { variant_id: fx.variantId },
+  });
+  if (staffBarcode.error?.message === "PERMISSION_DENIED") {
+    ok("staff gọi rpc_add_internal_barcode → PERMISSION_DENIED");
+  } else {
+    bad(
+      "staff gọi rpc_add_internal_barcode → PERMISSION_DENIED",
+      staffBarcode.error?.message ?? "GHI ĐƯỢC"
+    );
+  }
+
+  // fn_variant_code_suffix là hàm nội bộ của import, 0017 revoke với authenticated.
+  const directSuffix = await staff1.rpc("fn_variant_code_suffix", { p_color: "Xanh dương" });
+  if (directSuffix.error !== null) {
+    ok("authenticated không gọi thẳng được fn_variant_code_suffix", directSuffix.error.code);
+  } else {
+    bad("authenticated không gọi thẳng được fn_variant_code_suffix", "GỌI ĐƯỢC");
+  }
+
+  for (const fn of [
+    "rpc_save_product",
+    "rpc_delete_product",
+    "rpc_delete_item_group",
+    "rpc_add_internal_barcode",
+    "rpc_update_price",
+    "rpc_import_products",
+    "rpc_import_prices",
+  ]) {
+    const r = await anon.rpc(fn, { p_payload: {} });
     if (r.error !== null) ok(`anon gọi ${fn} → bị từ chối`, r.error.code);
     else bad(`anon gọi ${fn} → bị từ chối`, "GỌI ĐƯỢC");
   }

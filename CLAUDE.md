@@ -164,6 +164,12 @@ pnpm test:e2e            # Playwright — CHƯA CÓ, thuộc phase sau
 - Không hardcode mã màu — dùng biến từ `tokens.css`
 - Tối ưu màn hình 1366×768, thao tác được hoàn toàn bằng bàn phím
   (F1 tìm hàng · F4 đổi đơn vị · F9 thanh toán · Esc đóng), vùng bấm ≥ 44px
+- **Chọn thư viện form theo hình dạng form, không theo sở thích** (chốt ở Phase 3):
+  form có **bảng con thêm/xoá dòng động** (đơn vị quy đổi, biến thể, mã vạch, dòng giỏ
+  hàng, dòng phân bổ thu tiền) dùng `react-hook-form` + `useFieldArray` + `zodResolver`;
+  form **số trường cố định** (khách hàng, nhà cung cấp, nhóm hàng, mở ca, đóng ca, đăng
+  nhập) dùng `useState` + `useTransition` như các form đã có. Không đổi form cũ sang
+  react-hook-form chỉ để cho đồng nhất
 
 ## Kiểm tra bắt buộc sau mỗi phase động tới dữ liệu
 
