@@ -42,6 +42,36 @@ const LEVEL_TEXT: Record<PreviewLevel, string> = {
 };
 
 /**
+ * Gộp kết quả ghi với những dòng ĐÃ BỊ LOẠI Ở BƯỚC PREVIEW.
+ *
+ * Không gộp thì màn kết quả chỉ kể chuyện của những dòng được gửi đi, và một
+ * file 161 dòng có 3 dòng hỏng sẽ báo "157 ghi mới · 0 lỗi" — đúng với việc RPC
+ * đã làm, nhưng SAI với file người dùng vừa đưa vào, và họ đóng máy với niềm tin
+ * là cả file đã vào hết. Con số ở màn cuối phải nói về cả file.
+ *
+ * Dòng `warning` ở preview là dòng bị bỏ qua có chủ đích (mã đã tồn tại, giá
+ * không đổi) → cộng vào "bỏ qua". Dòng `error` → cộng vào "lỗi".
+ */
+function mergeOutcome(preview: ImportPreview<unknown>, outcome: ImportOutcome): ImportOutcome {
+  const rejected = preview.rows.filter((row) => row.level !== "ok");
+
+  return {
+    created: outcome.created,
+    skipped: outcome.skipped + rejected.filter((r) => r.level === "warning").length,
+    failed: outcome.failed + rejected.filter((r) => r.level === "error").length,
+    rows: [
+      ...rejected.map((r) => ({
+        row: r.row,
+        sku: r.sku,
+        status: r.level === "warning" ? "skipped" : "error",
+        reason: r.reason,
+      })),
+      ...outcome.rows,
+    ].sort((a, b) => a.row - b.row),
+  };
+}
+
+/**
  * Ba bước import: chọn file → xem preview từng dòng → xác nhận ghi.
  *
  * Preview là bắt buộc và không ghi gì (phase-3.md §5). Dòng lỗi bị bỏ qua chứ
@@ -63,6 +93,7 @@ export function ImportWizard({
   const [fileName, setFileName] = useState<string | null>(null);
   const [preview, setPreview] = useState<ImportPreview<unknown> | null>(null);
   const [outcome, setOutcome] = useState<ImportOutcome | null>(null);
+  const [fileRowCount, setFileRowCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -88,18 +119,22 @@ export function ImportWizard({
 
   function run(): void {
     if (preview === null || preview.payload.length === 0) return;
+    const current = preview;
     setError(null);
 
     startTransition(async () => {
-      const result = await onRun({ rows: preview.payload });
+      const result = await onRun({ rows: current.payload });
       if (!result.ok) {
         setError(result.message);
         return;
       }
-      setOutcome(result.data);
+
+      const merged = mergeOutcome(current, result.data);
+      setOutcome(merged);
+      setFileRowCount(current.rows.length);
       setPreview(null);
       toast.success("Đã import xong", {
-        description: `${result.data.created} dòng ghi mới · ${result.data.skipped} bỏ qua · ${result.data.failed} lỗi`,
+        description: `${merged.created} dòng ghi mới · ${merged.skipped} bỏ qua · ${merged.failed} lỗi`,
       });
       router.refresh();
     });
@@ -194,11 +229,17 @@ export function ImportWizard({
         <Card>
           <CardHeader>
             <CardTitle>
-              3. Kết quả — {outcome.created} ghi mới · {outcome.skipped} bỏ qua · {outcome.failed}{" "}
-              lỗi
+              3. Kết quả trên {fileRowCount} dòng của file — {outcome.created} ghi mới ·{" "}
+              {outcome.skipped} bỏ qua · {outcome.failed} lỗi
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {outcome.rows.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Mọi dòng trong file đều đã ghi vào hệ thống, không dòng nào bị bỏ qua.
+              </p>
+            )}
+
             {outcome.rows.length > 0 && (
               <div className="max-h-72 overflow-auto rounded-lg border border-border">
                 <Table>
@@ -206,6 +247,7 @@ export function ImportWizard({
                     <TableRow>
                       <TableHead className="w-20">Dòng</TableHead>
                       <TableHead className="w-32">Mã</TableHead>
+                      <TableHead className="w-28">Kết quả</TableHead>
                       <TableHead>Lý do</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -214,6 +256,13 @@ export function ImportWizard({
                       <TableRow key={`${row.row}-${row.sku ?? ""}`}>
                         <TableCell className="tabular-nums">{row.row}</TableCell>
                         <TableCell className="font-medium">{row.sku ?? ""}</TableCell>
+                        <TableCell>
+                          <span
+                            className={row.status === "error" ? "pill pill--red" : "pill pill--orange"}
+                          >
+                            {row.status === "error" ? "Lỗi" : "Bỏ qua"}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{row.reason}</TableCell>
                       </TableRow>
                     ))}

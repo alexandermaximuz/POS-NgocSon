@@ -9,6 +9,7 @@ import { getPriceMatrix, orderedPriceColumns, priceKey } from "@/lib/pricing/que
 import { createClient } from "@/lib/supabase/server";
 import { parsePriceWorkbook, parseProductWorkbook } from "./excel";
 import { existingSkus, productsBySku, summarize } from "./import-lookup";
+import { validateProductRow } from "./import-validate";
 import {
   priceImportPayloadSchema,
   productImportPayloadSchema,
@@ -112,54 +113,6 @@ export async function previewProductImport(
   return actionOk(summarize(preview, payload));
 }
 
-function validateProductRow(
-  row: ProductImportRow,
-  refs: {
-    groupCodes: Set<string>;
-    uomCodes: Set<string>;
-    supplierCodes: Set<string>;
-    seen: Set<string>;
-  }
-): { level: "error"; reason: string } | null {
-  if (row.sku === "") return { level: "error", reason: "Thiếu mã sản phẩm" };
-  if (!/^[A-Za-z0-9._-]+$/.test(row.sku)) {
-    return { level: "error", reason: "Mã sản phẩm có ký tự không hợp lệ" };
-  }
-  if (row.name === "") return { level: "error", reason: "Thiếu tên sản phẩm" };
-  if (refs.seen.has(row.sku)) {
-    return { level: "error", reason: "Mã này đã xuất hiện ở dòng trên trong cùng file" };
-  }
-  if (!refs.groupCodes.has(row.groupCode)) {
-    return { level: "error", reason: importReasonMessage("GROUP_NOT_FOUND") };
-  }
-  if (!refs.uomCodes.has(row.baseUomCode)) {
-    return { level: "error", reason: importReasonMessage("UOM_NOT_FOUND") };
-  }
-  if (row.supplierCode !== "" && !refs.supplierCodes.has(row.supplierCode)) {
-    return { level: "error", reason: importReasonMessage("SUPPLIER_NOT_FOUND") };
-  }
-
-  for (const uom of row.uoms) {
-    if (!refs.uomCodes.has(uom.code)) {
-      return { level: "error", reason: `Đơn vị lớn ${uom.code} không tồn tại` };
-    }
-    if (uom.code === row.baseUomCode) {
-      return { level: "error", reason: "Đơn vị lớn trùng với đơn vị gốc" };
-    }
-    if (uom.factor <= 0) return { level: "error", reason: "Hệ số quy đổi phải lớn hơn 0" };
-    if (uom.factor === 1) {
-      return { level: "error", reason: "Hệ số phải khác 1 — hệ số 1 là của đơn vị gốc" };
-    }
-  }
-
-  if (row.uoms.length === 2 && row.uoms[0]?.code === row.uoms[1]?.code) {
-    return { level: "error", reason: "Hai đơn vị lớn trùng nhau" };
-  }
-  if (row.safetyStock < 0) return { level: "error", reason: "Tồn tối thiểu không được âm" };
-
-  return null;
-}
-
 export async function runProductImport(input: unknown): Promise<ActionResult<ImportOutcome>> {
   const parsed = productImportPayloadSchema.safeParse(input);
   if (!parsed.success) return actionError("Danh sách dòng gửi lên không hợp lệ.");
@@ -194,11 +147,14 @@ export async function runProductImport(input: unknown): Promise<ActionResult<Imp
     outcome.skipped += result.skipped;
     outcome.failed += result.failed;
     for (const row of result.results) {
+      // Dòng ghi được thì không có gì để nói. Liệt kê cả 157 dòng thành công với
+      // ô "Lý do" trống làm bảng kết quả trông như một bảng lỗi.
+      if (row.status === "created") continue;
       outcome.rows.push({
         row: row.row,
         sku: row.sku,
         status: row.status,
-        reason: row.status === "created" ? "" : importReasonMessage(row.code),
+        reason: importReasonMessage(row.code),
       });
     }
   }
