@@ -1,6 +1,7 @@
 import {
   Boxes,
   ChartColumn,
+  FolderTree,
   HandCoins,
   Package,
   PackagePlus,
@@ -35,6 +36,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/cong-no", label: "Công nợ", icon: HandCoins },
   { href: "/tra-hang", label: "Trả hàng", icon: Undo2 },
   { href: "/san-pham", label: "Sản phẩm", icon: Package },
+  { href: "/nhom-hang", label: "Nhóm hàng", icon: FolderTree, ownerOnly: true },
   { href: "/bang-gia", label: "Bảng giá", icon: Tags, ownerOnly: true },
   { href: "/khach-hang", label: "Khách hàng", icon: Users },
   { href: "/nha-cung-cap", label: "Nhà cung cấp", icon: Truck },
